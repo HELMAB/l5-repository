@@ -6,6 +6,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 use Prettus\Repository\Contracts\RepositoryInterface;
 use Prettus\Repository\Events\RepositoryEventBase;
 use Prettus\Repository\Helpers\CacheKeys;
@@ -60,7 +61,15 @@ class CleanCacheRepository
                 $this->action = $event->getAction();
 
                 if (config("repository.cache.clean.on.{$this->action}", true)) {
-                    $cacheKeys = CacheKeys::getKeys(get_class($this->repository));
+                    // $cacheKeys = CacheKeys::getKeys(get_class($this->repository));
+
+                    // clear cache for redis
+                    Redis::select(1);
+                    $cacheKeys = collect(Redis::keys('*'))
+                        ->filter(fn($key) => str_contains($key, get_class($this->repository)))
+                        ->map(fn($item) => explode(":", $item)[1])
+                        ->values()
+                        ->toArray();
 
                     if (is_array($cacheKeys)) {
                         foreach ($cacheKeys as $key) {
